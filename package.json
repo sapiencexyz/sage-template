@@ -1,0 +1,37 @@
+{
+  "name": "sapience-eliza-agent",
+  "version": "1.0.0",
+  "description": "Interactive prediction market analyst agent for Sapience",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@elizaos/core": "^0.1.7-alpha.1",
+    "@elizaos/plugin-sapience": "github:sapiencexyz/plugin-sapience#main",
+    "@elizaos/client-direct": "^0.1.7-alpha.1",
+    "@ethereum-attestation-service/eas-sdk": "^2.5.0",
+    "viem": "^2.21.0",
+    "dotenv": "^16.4.5"
+  },
+  "overrides": {
+    "node-llama-cpp": "3.0.0-beta.32"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0"
+  },
+  "keywords": [
+    "eliza",
+    "agent",
+    "prediction-markets",
+    "sapience"
+  ],
+  "author": "",
+  "license": "MIT"
+}
