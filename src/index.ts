@@ -1,4 +1,4 @@
-import { AgentRuntime, elizaLogger, defaultCharacter, SqliteDatabaseAdapter, CacheManager, ModelProviderName } from "@elizaos/core";
+import { AgentRuntime, elizaLogger, defaultCharacter, ModelProviderName, CacheManager } from "@elizaos/core";
 import { DirectClient } from "@elizaos/client-direct";
 // Temporarily comment out plugin-sapience until types are fixed
 // import { sapiencePlugin } from "@elizaos/plugin-sapience";
@@ -11,6 +11,9 @@ import { createHash } from "crypto";
 // Import custom actions
 import { listMarketsAction } from "./actions/listMarkets.js";
 import { predictMarketAction } from "./actions/predictMarket.js";
+import { autoAttestAction } from "./actions/autoAttest.js";
+import { loopControlAction } from "./actions/loopControl.js";
+import { dashboardAction } from "./actions/dashboard.js";
 
 // Load environment variables
 dotenv.config();
@@ -40,11 +43,11 @@ async function main() {
   try {
     const agentId = generateAgentId(character.name);
     
-    // Create database adapter (using SQLite)
-    const databaseAdapter = new SqliteDatabaseAdapter({
-      db: null as any, // Will be initialized by adapter
-      runtime: null as any, // Will be set by runtime
-    });
+    // Create database adapter (in-memory for now)
+    const databaseAdapter = null as any; // Will use default in-memory adapter
+
+    // Create cache manager
+    const cacheManager = new CacheManager({} as any);
 
     // Create runtime with character
     const runtime = new AgentRuntime({
@@ -53,12 +56,17 @@ async function main() {
       conversationLength: 32,
       agentId,
       databaseAdapter,
+      cacheManager,
       token: process.env.OPENAI_API_KEY || "dummy-token",
       serverUrl: "http://localhost:3000",
       actions: [
         // Custom actions for market interaction
         listMarketsAction,
         predictMarketAction,
+        // Autonomous mode actions
+        autoAttestAction,
+        loopControlAction,
+        dashboardAction,
       ],
       plugins: [
         // Temporarily disabled until types are fixed
@@ -71,14 +79,18 @@ async function main() {
     
     elizaLogger.info("Sage is ready for conversation!");
     elizaLogger.info("Ask about available markets or request predictions");
-    elizaLogger.info("\nTry these commands:");
+    elizaLogger.info("\nInteractive Commands:");
     elizaLogger.info("  - 'What markets are available?'");
     elizaLogger.info("  - 'Predict market 147'");
     elizaLogger.info("  - 'Predict market 148 - btw, there's a major announcement tomorrow'");
+    elizaLogger.info("\nAutonomous Mode Commands:");
+    elizaLogger.info("  - 'Start auto mode' - Begin continuous attestation");
+    elizaLogger.info("  - 'Show dashboard' - View activity and stats");
+    elizaLogger.info("  - 'Stop auto mode' - Pause autonomous operation");
 
     // Start the CLI client for direct interaction
     const client = new DirectClient();
-    await client.start(runtime);
+    await (client as any).start(runtime);
 
   } catch (error) {
     elizaLogger.error("Failed to start agent:");

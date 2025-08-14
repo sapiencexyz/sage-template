@@ -1,4 +1,5 @@
-import { SchemaEncoder } from "@ethereum-attestation-service/eas-sdk";
+import * as EAS from "@ethereum-attestation-service/eas-sdk";
+const { SchemaEncoder } = EAS;
 import { encodeFunctionData } from "viem";
 import { elizaLogger } from "@elizaos/core";
 

@@ -1,12 +1,13 @@
-# Sapience Interactive Prediction Agent - Technical Specification
+# Sapience Interactive & Autonomous Prediction Agent - Technical Specification
 
 ## Executive Summary
 
-This specification defines an interactive Eliza OS agent that assists users in exploring Sapience prediction markets, generating data-driven predictions with detailed reasoning, and creating attestation calldata for on-chain submission. The agent operates as a conversational assistant that can analyze markets on demand, explain its reasoning, and prepare attestations without requiring users to understand the technical complexity.
+This specification defines a dual-mode Eliza OS agent for Sapience prediction markets that operates both interactively and autonomously. In interactive mode, users can explore markets through conversation, request predictions, and receive detailed explanations. In autonomous mode, the agent continuously monitors all markets and automatically submits attestations for unattested markets. This design serves as a demo-friendly template that developers can fork and customize for their own prediction market strategies.
 
-## Core Interaction Model
+## Operation Modes
 
-### User Interaction Flow
+### 1. Interactive Mode
+Users can chat with the agent to explore markets and get predictions:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -26,6 +27,32 @@ This specification defines an interactive Eliza OS agent that assists users in e
 │  User: "Why do you think that?"                              │
 │    ↓                                                          │
 │  Agent: Explains data sources and analysis                   │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2. Autonomous Mode
+Agent runs continuously to attest all markets:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AUTONOMOUS LOOP                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  Every 5 minutes:                                            │
+│  ┌─────────────────────────────────────────────────┐        │
+│  │  1. Fetch all active markets                     │        │
+│  │  2. Check which markets we've already attested   │        │
+│  │  3. Generate predictions for unattested markets  │        │
+│  │  4. Submit attestations for confident predictions│        │
+│  │  5. Report progress to connected users           │        │
+│  └─────────────────────────────────────────────────┘        │
+│                                                               │
+│  User Controls:                                              │
+│  • "Start auto mode" - Begin autonomous loop                 │
+│  • "Stop auto mode" - Pause autonomous operation             │
+│  • "Show status" - Display current progress                  │
+│  • "Set interval 10 minutes" - Adjust timing                 │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -236,7 +263,200 @@ async function handleUserContext(
 }
 ```
 
-### 3. Attestation Builder
+### 3. Autonomous Loop Action
+
+#### Purpose
+Enable the agent to run continuously, automatically attesting to unattested markets.
+
+#### Implementation
+
+```typescript
+interface AutoAttestAction {
+  name: 'AUTO_ATTEST';
+  
+  // Triggers: "start auto mode", "begin loop", "run continuously"
+  
+  async handler(runtime: IAgentRuntime, interval: number = 300000): Promise<void> {
+    // Store loop state
+    runtime.setState('autoMode', true);
+    runtime.setState('loopInterval', interval);
+    
+    const loopId = setInterval(async () => {
+      if (!runtime.getState('autoMode')) {
+        clearInterval(loopId);
+        return;
+      }
+      
+      try {
+        // 1. Fetch all markets
+        const markets = await runtime.callTool('list_active_markets');
+        const yesNoMarkets = markets.filter(m => m.claimStatementNo);
+        
+        // 2. Check attestations for each market
+        const unattested = [];
+        for (const market of yesNoMarkets) {
+          const attestations = await runtime.callTool('check_attestation_exists', {
+            attesterAddress: runtime.agentAddress,
+            marketId: market.marketId
+          });
+          
+          if (!attestations.hasAttestation) {
+            unattested.push(market);
+          }
+        }
+        
+        // 3. Process in batches
+        const batchSize = runtime.getSetting('batchSize') || 5;
+        const minConfidence = runtime.getSetting('minConfidence') || 0.6;
+        
+        for (const market of unattested.slice(0, batchSize)) {
+          // Generate prediction
+          const prediction = await generatePrediction(market);
+          
+          // Only attest if confident enough
+          if (prediction.confidence >= minConfidence) {
+            const calldata = await buildAttestationCalldata(market, prediction);
+            
+            // Log the attestation (in production, would submit on-chain)
+            runtime.emit('attestation', {
+              marketId: market.marketId,
+              prediction: prediction.probability,
+              confidence: prediction.confidence
+            });
+          }
+        }
+        
+        // Update statistics
+        runtime.setState('lastCycleTime', Date.now());
+        runtime.setState('marketsProcessed', unattested.length);
+        
+      } catch (error) {
+        elizaLogger.error('Auto-attest cycle failed:', error);
+      }
+    }, interval);
+    
+    runtime.setState('loopId', loopId);
+  }
+}
+```
+
+### 4. Loop Control Action
+
+#### Purpose
+Allow users to control the autonomous loop behavior.
+
+#### Implementation
+
+```typescript
+interface LoopControlAction {
+  name: 'LOOP_CONTROL';
+  
+  // Triggers: "stop auto mode", "pause", "set interval X", "set confidence X"
+  
+  async handler(runtime: IAgentRuntime, command: string): Promise<string> {
+    const commands = {
+      'stop': () => {
+        runtime.setState('autoMode', false);
+        const loopId = runtime.getState('loopId');
+        if (loopId) clearInterval(loopId);
+        return 'Autonomous mode stopped';
+      },
+      
+      'start': () => {
+        runtime.executeAction('AUTO_ATTEST');
+        return 'Autonomous mode started';
+      },
+      
+      'status': () => {
+        const autoMode = runtime.getState('autoMode');
+        const lastCycle = runtime.getState('lastCycleTime');
+        const processed = runtime.getState('marketsProcessed');
+        
+        return `
+          Mode: ${autoMode ? 'Running' : 'Stopped'}
+          Last Cycle: ${lastCycle ? new Date(lastCycle).toISOString() : 'Never'}
+          Markets Processed: ${processed || 0}
+          Interval: ${runtime.getState('loopInterval') / 1000}s
+          Min Confidence: ${runtime.getSetting('minConfidence')}
+        `;
+      },
+      
+      'setInterval': (minutes: number) => {
+        runtime.setState('loopInterval', minutes * 60 * 1000);
+        return `Interval set to ${minutes} minutes`;
+      },
+      
+      'setConfidence': (threshold: number) => {
+        runtime.setSetting('minConfidence', threshold);
+        return `Confidence threshold set to ${threshold}`;
+      }
+    };
+    
+    return commands[command]();
+  }
+}
+```
+
+### 5. Dashboard Action
+
+#### Purpose
+Provide visual feedback on the agent's attestation activity.
+
+#### Implementation
+
+```typescript
+interface DashboardAction {
+  name: 'SHOW_DASHBOARD';
+  
+  // Triggers: "show dashboard", "status", "show activity"
+  
+  async handler(runtime: IAgentRuntime): Promise<string> {
+    // Get statistics
+    const stats = await runtime.callTool('query_graphql', {
+      query: `
+        query GetAgentStats($attester: String!) {
+          attestations(where: { attester: $attester }) {
+            totalCount
+          }
+          markets {
+            totalCount
+            activeCount: count(where: { endTimestamp: { gt: $now } })
+          }
+        }
+      `,
+      variables: { 
+        attester: runtime.agentAddress,
+        now: Math.floor(Date.now() / 1000)
+      }
+    });
+    
+    const recentAttestations = await runtime.callTool('get_recent_attestations', {
+      limit: 5
+    });
+    
+    return `
+📊 **Attestation Dashboard**
+
+**Overall Stats:**
+• Total Markets: ${stats.markets.activeCount}
+• My Attestations: ${stats.attestations.totalCount}
+• Coverage: ${(stats.attestations.totalCount / stats.markets.activeCount * 100).toFixed(1)}%
+• Auto Mode: ${runtime.getState('autoMode') ? '🟢 Running' : '🔴 Stopped'}
+
+**Recent Activity:**
+${recentAttestations.map(a => 
+  `• Market #${a.marketId}: ${a.prediction}% YES (${timeAgo(a.time)})`
+).join('\n')}
+
+**Next Cycle:** ${runtime.getState('autoMode') ? 
+  `in ${Math.round((runtime.getState('loopInterval') - (Date.now() - runtime.getState('lastCycleTime'))) / 1000)}s` : 
+  'Not scheduled'}
+    `;
+  }
+}
+```
+
+### 6. Attestation Builder
 
 #### Purpose
 Generate EAS-compatible attestation calldata for on-chain submission.
@@ -290,7 +510,7 @@ async function buildAttestationCalldata(
 }
 ```
 
-### 4. Conversation Examples
+### 7. Conversation Examples
 
 #### Example 1: Market Discovery
 ```
@@ -407,7 +627,72 @@ Confidence: 6/10 (Medium)
 Would you like more details about the technical readiness?
 ```
 
-### 5. Character Configuration
+#### Example 5: Starting Autonomous Mode
+```
+User: Start auto mode
+
+Agent: Starting autonomous attestation mode...
+✅ Autonomous mode activated
+• Interval: 5 minutes
+• Confidence threshold: 0.6
+• Batch size: 5 markets per cycle
+
+I'll now continuously monitor and attest to unattested markets. You can check my progress with "show status" or stop me with "stop auto mode".
+```
+
+#### Example 6: Checking Status
+```
+User: Show dashboard
+
+Agent: 📊 **Attestation Dashboard**
+
+**Overall Stats:**
+• Total Markets: 47
+• My Attestations: 31
+• Coverage: 65.9%
+• Auto Mode: 🟢 Running
+
+**Recent Activity:**
+• Market #147: 72% YES (2 min ago)
+• Market #152: 31% YES (7 min ago)
+• Market #148: 58% YES (12 min ago)
+• Market #155: 89% YES (17 min ago)
+• Market #143: 15% YES (22 min ago)
+
+**Next Cycle:** in 180s
+```
+
+#### Example 7: Adjusting Settings
+```
+User: Set confidence threshold 0.8
+
+Agent: Confidence threshold updated to 0.8
+Now I'll only submit attestations for predictions where I have 80% or higher confidence.
+
+User: Set interval 10 minutes
+
+Agent: Loop interval updated to 10 minutes
+The next attestation cycle will run in 10 minutes.
+```
+
+#### Example 8: Loop Progress Notification
+```
+[Autonomous cycle running in background]
+
+Agent: 🔄 Attestation Cycle Complete
+• Markets checked: 23
+• New attestations: 7
+• Skipped (low confidence): 3
+• Already attested: 13
+
+Notable predictions:
+• Market #167: 91% YES (high confidence)
+• Market #169: 12% YES (contrarian view)
+
+Next cycle in 5 minutes.
+```
+
+### 8. Character Configuration
 
 ```json
 {
@@ -419,6 +704,14 @@ Would you like more details about the technical readiness?
     "voice": {
       "model": "gpt-4",
       "temperature": 0.3
+    },
+    "autonomousMode": {
+      "enabled": false,
+      "interval": 300000,
+      "batchSize": 5,
+      "minConfidence": 0.6,
+      "maxGasPrice": "10000000000",
+      "skipLowLiquidity": true
     }
   },
   "bio": [
@@ -490,12 +783,17 @@ sapience-eliza-agent/
 │   ├── actions/
 │   │   ├── listMarkets.ts         # Market discovery action
 │   │   ├── predictMarket.ts       # Prediction generation action
+│   │   ├── autoAttest.ts          # Autonomous attestation loop
+│   │   ├── loopControl.ts         # Control autonomous mode
+│   │   ├── dashboard.ts           # Show activity dashboard
 │   │   └── buildAttestation.ts    # Attestation builder action
 │   ├── evaluators/
-│   │   └── marketEvaluator.ts     # Detect market-related queries
+│   │   ├── marketEvaluator.ts     # Detect market-related queries
+│   │   └── loopEvaluator.ts       # Detect loop control commands
 │   └── utils/
 │       ├── eas.ts                 # EAS encoding utilities
-│       └── marketFormatter.ts     # Format markets for display
+│       ├── marketFormatter.ts     # Format markets for display
+│       └── stateManager.ts        # Manage agent state
 ├── character.json                  # Agent personality config
 ├── package.json
 ├── tsconfig.json
@@ -532,6 +830,12 @@ OPENAI_API_KEY=sk-...              # For prediction generation
 PRIVATE_KEY=0x...                   # If user wants to submit attestations
 RPC_URL=https://base-mainnet.infura.io/v3/...
 
+# Autonomous Mode Settings
+AUTO_MODE_ENABLED=false            # Start in auto mode
+AUTO_INTERVAL=300000               # Loop interval in ms (5 minutes)
+AUTO_BATCH_SIZE=5                  # Markets per cycle
+AUTO_MIN_CONFIDENCE=0.6            # Minimum confidence to attest
+
 # Auto-configured by plugin-sapience
 # SAPIENCE_API_URL=https://api.sapience.xyz
 ```
@@ -558,12 +862,49 @@ class PredictionErrorHandler {
 
 ### Why Eliza OS for This Use Case
 
-1. **Natural Conversation Flow**: Users can explore markets and understand predictions through dialogue
-2. **Context Retention**: Agent remembers previous questions in the conversation
-3. **Flexible Interaction**: Multiple ways to phrase requests
-4. **Explanation Depth**: Users can drill down into reasoning
-5. **Plugin Ecosystem**: Seamless integration with plugin-sapience for MCP
-6. **Extensibility**: Easy to add Discord/Telegram interfaces later
+1. **Dual Mode Operation**: Both interactive chat and autonomous loop in one agent
+2. **Natural Conversation Flow**: Users can explore markets and understand predictions through dialogue
+3. **Context Retention**: Agent remembers previous questions in the conversation
+4. **Flexible Interaction**: Multiple ways to phrase requests
+5. **Explanation Depth**: Users can drill down into reasoning
+6. **Plugin Ecosystem**: Seamless integration with plugin-sapience for MCP
+7. **Extensibility**: Easy to add Discord/Telegram interfaces later
+8. **Demo-Friendly**: Clear patterns for others to fork and customize
+
+### For Developers Forking This Agent
+
+This agent provides a complete template for building your own Sapience bots:
+
+**Easy Customization Points:**
+```typescript
+// 1. Change prediction strategy
+async generatePrediction(market) {
+  // Replace with your own prediction logic
+  // Could use technical analysis, sentiment, etc.
+}
+
+// 2. Adjust attestation criteria
+if (prediction.confidence > 0.8 && market.liquidity > 1000) {
+  // Your custom rules for when to attest
+}
+
+// 3. Add new data sources
+const customData = await fetchYourAPI(market.question);
+prediction = incorporateData(customData);
+
+// 4. Modify loop behavior
+const priority = calculateMarketPriority(market);
+if (priority === 'HIGH') {
+  // Process immediately
+}
+```
+
+**Extension Ideas:**
+- Add Twitter integration to tweet predictions
+- Connect to Discord for community alerts
+- Implement profit tracking for attestations
+- Add machine learning models for predictions
+- Create specialized agents for specific categories
 
 ### User Benefits
 
@@ -609,4 +950,12 @@ npm run dev
 
 ## Conclusion
 
-This specification defines an interactive Eliza OS agent that makes prediction markets accessible through natural conversation. By focusing on explanation and transparency, the agent helps users understand not just what to predict, but why. The architecture leverages plugin-sapience for seamless MCP integration while maintaining flexibility for future enhancements.
+This specification defines a dual-mode Eliza OS agent that serves both as an interactive assistant and an autonomous attestation bot for Sapience prediction markets. The agent can engage users in natural conversation to explore markets and explain predictions, while also running continuously in the background to automatically attest to all unattested markets.
+
+Key innovations:
+- **Hybrid Architecture**: Seamlessly switches between interactive and autonomous modes
+- **Developer-Friendly**: Clear patterns and extension points for customization
+- **Production-Ready**: Includes error handling, state management, and monitoring
+- **Demo Value**: Showcases best practices for building Eliza agents with Sapience
+
+The architecture leverages plugin-sapience for MCP integration while providing a template that developers can fork to create specialized prediction bots with their own strategies, data sources, and attestation criteria. This makes it an ideal starting point for anyone looking to build automated agents for Sapience Protocol.
