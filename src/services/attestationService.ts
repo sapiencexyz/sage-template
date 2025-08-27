@@ -1,6 +1,7 @@
 import { elizaLogger, IAgentRuntime, ModelType } from '@elizaos/core';
 // @ts-ignore - Sapience plugin types not available at build time
 import type { SapienceService } from '@elizaos/plugin-sapience';
+import { buildAttestationCalldata } from 'src/utils/eas';
 
 interface AttestationConfig {
   enabled: boolean;
@@ -318,7 +319,9 @@ export class AttestationService {
                 candidateMarkets.push(market);
                 continue;
               } else {
-                console.log(`[AttestationService] Market ${marketId}: 24h+ elapsed but probability only changed by ${probabilityChange.toFixed(1)}% (threshold: ${this.config.probabilityChangeThreshold}%) - skipping`);
+                console.log(
+                  `[AttestationService] Market ${marketId}: 24h+ elapsed but probability only changed by ${probabilityChange.toFixed(1)}% (threshold: ${this.config.probabilityChangeThreshold}%) - skipping`
+                );
               }
             }
           }
@@ -327,7 +330,9 @@ export class AttestationService {
         }
 
         // For markets < 24h old, we don't need to check them at all
-        console.log(`[AttestationService] Market ${marketId}: Only ${hoursSinceLastAttestation.toFixed(1)}h since last attestation - skipping`);
+        console.log(
+          `[AttestationService] Market ${marketId}: Only ${hoursSinceLastAttestation.toFixed(1)}h since last attestation - skipping`
+        );
         continue;
       } catch (error) {
         const marketId = market.marketId || market.id;
@@ -441,7 +446,7 @@ export class AttestationService {
         'sapience',
         'get_attestations_by_address',
         {
-          attesterAddress: walletAddress
+          attesterAddress: walletAddress,
           // Don't filter by marketId - we want ALL attestations for this wallet
         }
       );
@@ -670,38 +675,27 @@ export class AttestationService {
     try {
       const marketId = market.marketId || market.id;
       elizaLogger.info(
-        `[AttestationService] [TESTING MODE] Analyzing market ${market.id} (marketId: ${marketId})`
+        `[AttestationService] Analyzing market ${market.id} (marketId: ${marketId})`
       );
       console.log(
-        `🔮 [TEST] Would divine market #${marketId}: ${market.question?.substring(0, 80)}...`
+        `🔮 Divining market #${marketId}: ${market.question?.substring(0, 80)}...`
       );
-      console.log(
-        `📊 [TEST] Reason for attestation: ${market._attestationReason}`
-      );
+      console.log(`📊 Reason for attestation: ${market._attestationReason}`);
 
       // Generate prediction for this market
       const prediction = await this.generatePrediction(market);
-      
-      if (!prediction) {
-        elizaLogger.error(`[AttestationService] Failed to generate prediction for market ${market.id}`);
-        return;
-      }
-      
-      console.log(`🔮 Generated prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`);
-      console.log(`💭 Reasoning: ${prediction.reasoning}`);
-      
-      // TODO: Enable actual attestation submission in production
-      console.log(`[AttestationService] WOULD SUBMIT attestation for market ${marketId} - currently in test mode`);
-      return;
 
-      /* COMMENTED OUT - TESTING MARKET ID FILTERING
-      // Generate prediction using the agent's reasoning
-      const prediction = await this.generatePrediction(market);
-      
       if (!prediction) {
-        elizaLogger.error(`[AttestationService] Failed to generate prediction for market ${market.id}`);
+        elizaLogger.error(
+          `[AttestationService] Failed to generate prediction for market ${market.id}`
+        );
         return;
       }
+
+      console.log(
+        `🔮 Generated prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`
+      );
+      console.log(`💭 Reasoning: ${prediction.reasoning}`);
 
       // Check confidence threshold
       if (prediction.confidence < this.config.minConfidence) {
@@ -736,13 +730,13 @@ export class AttestationService {
       const transactionData = {
         to: attestationData.to,
         data: attestationData.data,
-        value: attestationData.value || "0"
+        value: attestationData.value || '0',
       };
 
       // Try to submit using submitTransactionAction
       const actions = this.runtime.actions || [];
       const submitAction = actions.find(a => a.name === 'SUBMIT_TRANSACTION');
-      
+
       if (submitAction) {
         try {
           // Create a message for the submit action
@@ -752,9 +746,9 @@ export class AttestationService {
             roomId: '00000000-0000-0000-0000-000000000000' as any,
             content: {
               text: `Submit this transaction: ${JSON.stringify(transactionData)}`,
-              action: 'SUBMIT_TRANSACTION'
+              action: 'SUBMIT_TRANSACTION',
             },
-            createdAt: Date.now()
+            createdAt: Date.now(),
           };
 
           elizaLogger.info(
@@ -769,8 +763,10 @@ export class AttestationService {
             {},
             undefined
           );
-          
-          elizaLogger.info('[AttestationService] Transaction submission completed');
+
+          elizaLogger.info(
+            '[AttestationService] Transaction submission completed'
+          );
         } catch (error) {
           elizaLogger.error(
             `[AttestationService] Failed to submit transaction:`,
@@ -788,21 +784,16 @@ export class AttestationService {
       this.attestationHistory.set(market.id, {
         timestamp: new Date(),
         probability: prediction.probability,
-        confidence: prediction.confidence
+        confidence: prediction.confidence,
       });
 
       elizaLogger.info(
         `[AttestationService] Market ${market.id} attested: ${prediction.probability}% YES (confidence: ${prediction.confidence})`
       );
-      
+
       // Sage's concise attestation message (max 180 chars)
       const sageMessage = `Market #${market.id}: ${prediction.probability}% YES. ${prediction.reasoning.substring(0, 100)}${prediction.reasoning.length > 100 ? '...' : ''}`;
       console.log(`✅ ${sageMessage}`);
-      */
-
-      elizaLogger.info(
-        `[AttestationService] SKIPPED attestation for market ${market.id} (marketId: ${marketId}) - testing mode`
-      );
     } catch (error) {
       const marketId = market.marketId || market.id;
       elizaLogger.error(
