@@ -16,7 +16,7 @@ export const character: Character = {
     '@elizaos/plugin-openai',
 
     // Sapience plugin for market data and attestations
-    '@elizaos/plugin-sapience',
+    '@sapiencexyz/elizaos-plugin',
   ],
   settings: {
     secrets: {},
