@@ -25,9 +25,9 @@ export const character: Character = {
     embeddingModel: 'text-embedding-3-small',
     autonomousMode: {
       enabled: true,
-      interval: 300000, // 5 minutes
+      interval: 3600000, // 1 hour
       minConfidence: 0.2,
-      batchSize: 5,
+      batchSize: 50,
     },
     sapience: {
       servers: {
