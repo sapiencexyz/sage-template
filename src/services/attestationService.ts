@@ -1,4 +1,4 @@
-import { elizaLogger, IAgentRuntime, ModelType } from '@elizaos/core';
+import { elizaLogger, IAgentRuntime, ModelType, Memory } from '@elizaos/core';
 // @ts-ignore - Sapience plugin types not available at build time
 import type { SapienceService } from '@elizaos/plugin-sapience';
 import { buildAttestationCalldata } from 'src/utils/eas';
