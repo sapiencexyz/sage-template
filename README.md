@@ -1,158 +1,122 @@
-# Sage - Sapience Prediction Agent
+# Project Starter
 
-An interactive and autonomous Eliza OS agent that helps users explore Sapience prediction markets, generate data-driven predictions, and automatically attest to markets with high confidence.
+This is the starter template for ElizaOS projects.
 
 ## Features
 
-### Interactive Mode
-- 🔍 **Market Discovery**: Browse active yes/no prediction markets through conversation
-- 📊 **Intelligent Predictions**: Generate probability assessments with detailed reasoning
-- 💬 **Conversational Interface**: Natural dialogue for exploring markets
-- 🔗 **Attestation Support**: Generates EAS-compatible calldata for on-chain attestations
-- 🧠 **Context Aware**: Incorporates user-provided context into predictions
+- Pre-configured project structure for ElizaOS development
+- Comprehensive testing setup with component and e2e tests
+- Default character configuration with plugin integration
+- Example service, action, and provider implementations
+- TypeScript configuration for optimal developer experience
+- Built-in documentation and examples
 
-### Autonomous Mode (New!)
-- 🤖 **Continuous Monitoring**: Automatically check all markets on a configurable interval
-- 🎯 **Smart Attestation**: Only attest to markets meeting confidence thresholds
-- 📦 **Batch Processing**: Handle multiple markets efficiently per cycle
-- 📈 **Progress Dashboard**: Track attestation activity and statistics in real-time
-
-## Setup
-
-1. **Install dependencies**:
-```bash
-npm install
-```
-
-2. **Configure environment**:
-```bash
-cp .env.example .env
-# Edit .env with your OpenAI API key
-```
-
-3. **Run the agent**:
-```bash
-npm run dev
-```
-
-## Usage
-
-### Interactive Commands
-
-#### List Available Markets
-```
-You: What markets are available?
-Sage: [Lists all active yes/no prediction markets]
-```
-
-#### Get a Prediction
-```
-You: Predict market 147
-Sage: [Provides detailed analysis with probability, reasoning, and attestation calldata]
-```
-
-#### Provide Additional Context
-```
-You: Predict market 147 - btw, there's a conference next week
-Sage: [Incorporates your context into the prediction]
-```
-
-### Autonomous Mode Commands
-
-#### Start Autonomous Loop
-```
-You: Start auto mode
-Sage: ✅ Autonomous attestation mode activated
-```
-
-#### Control the Loop
-```
-You: Stop auto mode                    # Pause autonomous operation
-You: Set interval 10 minutes           # Change cycle frequency
-You: Set confidence 0.8                # Adjust quality threshold
-You: Set batch size 10                 # Process more markets per cycle
-```
-
-#### View Activity
-```
-You: Show dashboard
-Sage: 📊 Attestation Dashboard
-      • Total Markets: 47
-      • My Attestations: 31
-      • Coverage: 65.9%
-      • Auto Mode: 🟢 Running
-```
-
-## How It Works
-
-1. **Market Data**: Fetches active markets from Sapience via MCP tools
-2. **Prediction Generation**: Uses LLM to analyze markets and generate probabilities
-3. **Attestation Building**: Creates EAS-compatible calldata for on-chain submission
-4. **Web Search**: Can search for recent information when needed
-
-## Configuration
-
-### Environment Variables
+## Getting Started
 
 ```bash
-# Required
-OPENAI_API_KEY=sk-...              # For prediction generation
+# Create a new project
+elizaos create -t project my-project
+# Dependencies are automatically installed and built
 
-# Optional (for on-chain submission)
-PRIVATE_KEY=0x...                   # Wallet private key
-RPC_URL=https://base-mainnet...    # Custom RPC endpoint
+# Navigate to the project directory
+cd my-project
 
-# Autonomous Mode Settings
-AUTO_MODE_ENABLED=false            # Start in auto mode
-AUTO_INTERVAL=300000               # Loop interval in ms (5 minutes)
-AUTO_BATCH_SIZE=5                  # Markets per cycle
-AUTO_MIN_CONFIDENCE=0.6            # Minimum confidence to attest
+# Start development immediately
+elizaos dev
 ```
-
-### Character Configuration
-
-Edit `character.json` to customize the agent's personality and behavior:
-- Agent name and bio
-- Autonomous mode defaults
-- Model temperature settings
-- Conversation style
-
-## Architecture
-
-```
-src/
-├── actions/                 # Eliza actions
-│   ├── listMarkets.ts      # Market discovery
-│   ├── predictMarket.ts    # Prediction generation
-│   ├── autoAttest.ts       # Autonomous loop
-│   ├── loopControl.ts      # Loop management
-│   └── dashboard.ts        # Activity display
-├── utils/
-│   ├── eas.ts              # EAS attestation builder
-│   └── stateManager.ts     # State management
-└── index.ts                # Main entry point
-```
-
-### Key Components
-- **Eliza OS Core**: Conversational agent framework
-- **Plugin-Sapience**: MCP integration for Sapience API
-- **Custom Actions**: Market interaction and autonomous operations
-- **EAS SDK**: Attestation calldata encoding
-- **State Manager**: Tracks autonomous mode state and statistics
 
 ## Development
 
 ```bash
-# Build TypeScript
-npm run build
+# Start development with hot-reloading (recommended)
+elizaos dev
 
-# Run in development mode
-npm run dev
+# OR start without hot-reloading
+elizaos start
+# Note: When using 'start', you need to rebuild after changes:
+# bun run build
 
-# Clean build artifacts
-npm run clean
+# Test the project
+elizaos test
 ```
 
-## License
+## Testing
 
-MIT
+ElizaOS employs a dual testing strategy:
+
+1. **Component Tests** (`src/__tests__/*.test.ts`)
+
+   - Run with Bun's native test runner
+   - Fast, isolated tests using mocks
+   - Perfect for TDD and component logic
+
+2. **E2E Tests** (`src/__tests__/e2e/*.e2e.ts`)
+   - Run with ElizaOS custom test runner
+   - Real runtime with actual database (PGLite)
+   - Test complete user scenarios
+
+### Test Structure
+
+```
+src/
+  __tests__/              # All tests live inside src
+    *.test.ts            # Component tests (use Bun test runner)
+    e2e/                 # E2E tests (use ElizaOS test runner)
+      project-starter.e2e.ts  # E2E test suite
+      README.md          # E2E testing documentation
+  index.ts               # Export tests here: tests: [ProjectStarterTestSuite]
+```
+
+### Running Tests
+
+- `elizaos test` - Run all tests (component + e2e)
+- `elizaos test component` - Run only component tests
+- `elizaos test e2e` - Run only E2E tests
+
+### Writing Tests
+
+Component tests use bun:test:
+
+```typescript
+// Unit test example (__tests__/config.test.ts)
+describe('Configuration', () => {
+  it('should load configuration correctly', () => {
+    expect(config.debug).toBeDefined();
+  });
+});
+
+// Integration test example (__tests__/integration.test.ts)
+describe('Integration: Plugin with Character', () => {
+  it('should initialize character with plugins', async () => {
+    // Test interactions between components
+  });
+});
+```
+
+E2E tests use ElizaOS test interface:
+
+```typescript
+// E2E test example (e2e/project.test.ts)
+export class ProjectTestSuite implements TestSuite {
+  name = 'project_test_suite';
+  tests = [
+    {
+      name: 'project_initialization',
+      fn: async (runtime) => {
+        // Test project in a real runtime
+      },
+    },
+  ];
+}
+
+export default new ProjectTestSuite();
+```
+
+The test utilities in `__tests__/utils/` provide helper functions to simplify writing tests.
+
+## Configuration
+
+Customize your project by modifying:
+
+- `src/index.ts` - Main entry point
+- `src/character.ts` - Character definition

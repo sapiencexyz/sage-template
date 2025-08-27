@@ -1,25 +1,39 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
+    "strictFunctionTypes": false,
+    "useUnknownInCatchVariables": false,
+    "allowImportingTsExtensions": true,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "emitDeclarationOnly": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmitOnError": false,
+    "moduleDetection": "force",
+    "allowArbitraryExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@elizaos/core": ["../../core/src"],
+      "@elizaos/core/*": ["../../core/src/*"]
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "src/__tests__/**/*",
+    "src/**/cypress/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }
