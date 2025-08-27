@@ -240,7 +240,7 @@ export class AttestationService {
   }
 
   private async filterMarketsForAttestation(markets: any[]): Promise<any[]> {
-    const candidateMarkets = [];
+    const candidateMarkets: any[] = [];
 
     // Get our wallet address to query attestations
     const walletAddress = await this.getWalletAddress();
@@ -804,6 +804,7 @@ export class AttestationService {
         `[AttestationService] SKIPPED attestation for market ${market.id} (marketId: ${marketId}) - testing mode`
       );
     } catch (error) {
+      const marketId = market.marketId || market.id;
       elizaLogger.error(
         `[AttestationService] Failed to process market ${market.id} (marketId: ${marketId}):`,
         error
