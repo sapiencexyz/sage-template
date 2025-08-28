@@ -123,13 +123,13 @@ export class AttestationService {
       elizaLogger.info(
         `[AttestationService] Starting (interval: ${this.config.interval}ms)`
       );
-      console.log(`\n🚀 Autonomous attestation started:`);
-      console.log(`   • Interval: ${this.config.interval / 1000} seconds`);
+      console.log(`\nautonomous attestation started:`);
+      console.log(`   • interval: ${this.config.interval / 1000} seconds`);
       console.log(
-        `   • Min confidence: ${(this.config.minConfidence * 100).toFixed(0)}%`
+        `   • min confidence: ${(this.config.minConfidence * 100).toFixed(0)}%`
       );
       console.log(
-        `   • Batch size: ${this.config.batchSize} markets per cycle\n`
+        `   • batch size: ${this.config.batchSize} markets per cycle\n`
       );
 
       this.isRunning = true;
@@ -164,7 +164,7 @@ export class AttestationService {
 
     this.isRunning = false;
     elizaLogger.info('[AttestationService] Stopped');
-    console.log('🛑 Autonomous attestation stopped\n');
+    console.log('autonomous attestation stopped\n');
   }
 
   private async attestationCycle(): Promise<void> {
@@ -355,24 +355,33 @@ export class AttestationService {
     confidence: number;
   } | null> {
     try {
+      // Search for recent events related to the market question
+      const searchContext = await this.searchForRelevantEvents(market.question);
+      
       const predictionPrompt = `
-        ⚡ Channel autonomous mystical divination for this market:
-        Prophecy: ${market.question}
-        Market Aura: ${market.currentPrice || 50}% YES
-        Energy Flow: ${market.volume || 0}
-        Temporal Boundary: ${new Date(market.endTimestamp * 1000).toISOString()}
+        You are a helpful AI that generates concise tweets. You NEVER use any hashtags or emojis. 
+        The tone should be like Matt Levine - savvy, nerdy. NEVER be corny or cliche. 
+        Keep under 280 characters. Make clear what the question is and your prediction, current tense.
+        All lowercase.
         
-        As the autonomous oracle, respond with ONLY valid JSON (no other text):
+        Market Question: ${market.question}
+        Current Market Price: ${market.currentPrice || 50}% YES
+        Volume: ${market.volume || 0}
+        End Date: ${new Date(market.endTimestamp * 1000).toISOString()}
+        
+        Recent relevant information from web search:
+        ${searchContext}
+        
+        Generate a prediction considering both market data and recent events.
+        Respond with ONLY valid JSON (no other text):
         {
           "probability": <number from 0 to 100>,
-          "reasoning": "<mystical insight under 180 characters - channel your sage wisdom automatically>",
+          "reasoning": "<savvy tweet-like analysis under 180 characters, all lowercase>",
           "confidence": <number from 0.0 to 1.0>
         }
         
-        Example autonomous prophecy:
-        {"probability": 65, "reasoning": "Cosmic patterns align with market momentum. The probability runes glow with measured optimism 🌟", "confidence": 0.7}
-        
-        Keep reasoning under 180 characters and maintain your mystical sage voice!
+        Example:
+        {"probability": 65, "reasoning": "regulatory pressure mounting but tech adoption accelerating. classic policy lag vs innovation story", "confidence": 0.7}
       `;
 
       const predictionResponse = await this.runtime.useModel(
@@ -411,6 +420,72 @@ export class AttestationService {
       );
       return null;
     }
+  }
+
+  private async searchForRelevantEvents(marketQuestion: string): Promise<string> {
+    try {
+      // Extract key terms from the market question for search
+      const searchQuery = this.extractSearchTerms(marketQuestion);
+      
+      // Check if web search action is available
+      const actions = this.runtime.actions || [];
+      const webSearchAction = actions.find(a => a.name === 'WEB_SEARCH');
+      
+      if (!webSearchAction) {
+        elizaLogger.warn('[AttestationService] Web search not available, using basic context');
+        return 'no recent search data available';
+      }
+
+      try {
+        // Create a search message
+        const searchMessage: Memory = {
+          entityId: '00000000-0000-0000-0000-000000000000' as any,
+          agentId: this.runtime.agentId,
+          roomId: '00000000-0000-0000-0000-000000000000' as any,
+          content: {
+            text: `Search for recent news about: ${searchQuery}`,
+            action: 'WEB_SEARCH'
+          },
+          createdAt: Date.now()
+        };
+
+        // Execute web search
+        const searchResult = await webSearchAction.handler(
+          this.runtime,
+          searchMessage,
+          undefined,
+          {},
+          undefined
+        );
+
+        if (searchResult && searchResult.text) {
+          // Limit search context to avoid overwhelming the prompt
+          return searchResult.text.substring(0, 800) + '...';
+        }
+        
+        return 'no relevant recent events found';
+      } catch (searchError) {
+        elizaLogger.warn('[AttestationService] Search failed:', searchError);
+        return 'search temporarily unavailable';
+      }
+    } catch (error) {
+      elizaLogger.warn('[AttestationService] Failed to search for events:', error);
+      return 'no search context available';
+    }
+  }
+
+  private extractSearchTerms(marketQuestion: string): string {
+    // Simple extraction of key terms from market question
+    // Remove common question words and focus on important terms
+    const stopWords = ['will', 'would', 'should', 'could', 'can', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between'];
+    
+    const words = marketQuestion.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.includes(word));
+    
+    // Take the most important words (first 5 after filtering)
+    return words.slice(0, 5).join(' ');
   }
 
   private async getWalletAddress(): Promise<string | null> {
@@ -678,9 +753,9 @@ export class AttestationService {
         `[AttestationService] Analyzing market ${market.id} (marketId: ${marketId})`
       );
       console.log(
-        `🔮 Divining market #${marketId}: ${market.question?.substring(0, 80)}...`
+        `analyzing market #${marketId}: ${market.question?.substring(0, 80)}...`
       );
-      console.log(`📊 Reason for attestation: ${market._attestationReason}`);
+      console.log(`reason for attestation: ${market._attestationReason}`);
 
       // Generate prediction for this market
       const prediction = await this.generatePrediction(market);
@@ -693,9 +768,9 @@ export class AttestationService {
       }
 
       console.log(
-        `🔮 Generated prediction: ${prediction.probability}% YES (confidence: ${prediction.confidence})`
+        `prediction: ${prediction.probability}% yes (confidence: ${prediction.confidence})`
       );
-      console.log(`💭 Reasoning: ${prediction.reasoning}`);
+      console.log(`reasoning: ${prediction.reasoning}`);
 
       // Check confidence threshold
       if (prediction.confidence < this.config.minConfidence) {
@@ -791,9 +866,9 @@ export class AttestationService {
         `[AttestationService] Market ${market.id} attested: ${prediction.probability}% YES (confidence: ${prediction.confidence})`
       );
 
-      // Sage's concise attestation message (max 180 chars)
-      const sageMessage = `Market #${market.id}: ${prediction.probability}% YES. ${prediction.reasoning.substring(0, 100)}${prediction.reasoning.length > 100 ? '...' : ''}`;
-      console.log(`✅ ${sageMessage}`);
+      // Concise attestation summary (max 180 chars)
+      const attestationSummary = `market #${market.id}: ${prediction.probability}% yes. ${prediction.reasoning.substring(0, 100)}${prediction.reasoning.length > 100 ? '...' : ''}`;
+      console.log(`attested: ${attestationSummary}`);
     } catch (error) {
       const marketId = market.marketId || market.id;
       elizaLogger.error(
