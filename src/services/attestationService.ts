@@ -355,33 +355,33 @@ export class AttestationService {
     confidence: number;
   } | null> {
     try {
-      // Search for recent events related to the market question
-      const searchContext = await this.searchForRelevantEvents(market.question);
-      
       const predictionPrompt = `
         You are a helpful AI that generates concise tweets. You NEVER use any hashtags or emojis. 
         The tone should be like Matt Levine - savvy, nerdy. NEVER be corny or cliche. 
         Keep under 280 characters. Make clear what the question is and your prediction, current tense.
         All lowercase.
         
+        IMPORTANT: Before making your prediction, search the web for recent news and developments related to this market question. Use current information to inform your analysis.
+        
         Market Question: ${market.question}
         Current Market Price: ${market.currentPrice || 50}% YES
         Volume: ${market.volume || 0}
         End Date: ${new Date(market.endTimestamp * 1000).toISOString()}
         
-        Recent relevant information from web search:
-        ${searchContext}
+        Steps:
+        1. Search the web for recent news/events related to: "${market.question}"
+        2. Analyze both the market data above AND the recent information you found
+        3. Generate a prediction that incorporates current events
         
-        Generate a prediction considering both market data and recent events.
         Respond with ONLY valid JSON (no other text):
         {
           "probability": <number from 0 to 100>,
-          "reasoning": "<savvy tweet-like analysis under 180 characters, all lowercase>",
+          "reasoning": "<savvy tweet-like analysis under 180 characters incorporating recent info, all lowercase>",
           "confidence": <number from 0.0 to 1.0>
         }
         
         Example:
-        {"probability": 65, "reasoning": "regulatory pressure mounting but tech adoption accelerating. classic policy lag vs innovation story", "confidence": 0.7}
+        {"probability": 65, "reasoning": "recent earnings beat expectations but regulatory headwinds mounting. market pricing in mixed signals", "confidence": 0.7}
       `;
 
       const predictionResponse = await this.runtime.useModel(
@@ -422,71 +422,6 @@ export class AttestationService {
     }
   }
 
-  private async searchForRelevantEvents(marketQuestion: string): Promise<string> {
-    try {
-      // Extract key terms from the market question for search
-      const searchQuery = this.extractSearchTerms(marketQuestion);
-      
-      // Check if web search action is available
-      const actions = this.runtime.actions || [];
-      const webSearchAction = actions.find(a => a.name === 'WEB_SEARCH');
-      
-      if (!webSearchAction) {
-        elizaLogger.warn('[AttestationService] Web search not available, using basic context');
-        return 'no recent search data available';
-      }
-
-      try {
-        // Create a search message
-        const searchMessage: Memory = {
-          entityId: '00000000-0000-0000-0000-000000000000' as any,
-          agentId: this.runtime.agentId,
-          roomId: '00000000-0000-0000-0000-000000000000' as any,
-          content: {
-            text: `Search for recent news about: ${searchQuery}`,
-            action: 'WEB_SEARCH'
-          },
-          createdAt: Date.now()
-        };
-
-        // Execute web search
-        const searchResult = await webSearchAction.handler(
-          this.runtime,
-          searchMessage,
-          undefined,
-          {},
-          undefined
-        );
-
-        if (searchResult && searchResult.text) {
-          // Limit search context to avoid overwhelming the prompt
-          return searchResult.text.substring(0, 800) + '...';
-        }
-        
-        return 'no relevant recent events found';
-      } catch (searchError) {
-        elizaLogger.warn('[AttestationService] Search failed:', searchError);
-        return 'search temporarily unavailable';
-      }
-    } catch (error) {
-      elizaLogger.warn('[AttestationService] Failed to search for events:', error);
-      return 'no search context available';
-    }
-  }
-
-  private extractSearchTerms(marketQuestion: string): string {
-    // Simple extraction of key terms from market question
-    // Remove common question words and focus on important terms
-    const stopWords = ['will', 'would', 'should', 'could', 'can', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between'];
-    
-    const words = marketQuestion.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 2 && !stopWords.includes(word));
-    
-    // Take the most important words (first 5 after filtering)
-    return words.slice(0, 5).join(' ');
-  }
 
   private async getWalletAddress(): Promise<string | null> {
     try {

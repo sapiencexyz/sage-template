@@ -15,9 +15,6 @@ export const character: Character = {
     // Model provider - OpenAI for GPT-4 access
     '@elizaos/plugin-openai',
 
-    // Web search for latest information and events
-    '@elizaos/plugin-web-search',
-
     // Sapience plugin for market data and attestations
     '@sapiencexyz/elizaos-plugin',
   ],
