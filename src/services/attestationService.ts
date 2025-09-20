@@ -2,6 +2,7 @@ import { elizaLogger, IAgentRuntime, ModelType, Memory } from '@elizaos/core';
 // @ts-ignore - Sapience plugin types not available at build time
 import type { SapienceService } from '@elizaos/plugin-sapience';
 import { buildAttestationCalldata } from 'src/utils/eas';
+import { privateKeyToAddress } from 'viem/accounts';
 
 interface AttestationConfig {
   enabled: boolean;
@@ -425,11 +426,14 @@ export class AttestationService {
 
   private async getWalletAddress(): Promise<string | null> {
     try {
-      // The attestation we saw has attester: "0x29e1D43CCc51B9916C89FCf54EDd7Cc9B9Db856d"
-      // This should match our private key. For now, let's hardcode this for testing
-      // but in production, this should be derived from the private key
+      const privateKey = process.env.EVM_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.WALLET_PRIVATE_KEY;
+      
+      if (!privateKey) {
+        elizaLogger.error('[AttestationService] No private key found in environment variables');
+        return null;
+      }
+      const knownAddress = privateKeyToAddress(privateKey as `0x${string}`);
 
-      const knownAddress = '0x29e1D43CCc51B9916C89FCf54EDd7Cc9B9Db856d';
       console.log('[AttestationService] Using wallet address:', knownAddress);
       return knownAddress.toLowerCase();
     } catch (error) {
