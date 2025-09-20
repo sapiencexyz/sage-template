@@ -1,5 +1,4 @@
 import { type Character } from '@elizaos/core';
-
 /**
  * Sage - Expert prediction analyst for Sapience markets
  * An analytical and transparent prediction market agent that provides
