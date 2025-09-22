@@ -13,8 +13,14 @@ This is the starter template for ElizaOS projects.
 
 ## Getting Started
 
+### Quick Deploy
+
+One-click deployemnt on Railway. Plug-in your environment varibles and your bot will start making forecasts. 
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/deploy/vfc8cZ?referralCode=DbBhWB)
+
+### Local Development
+
 ```bash
 # Create a new project
 elizaos create -t project my-project
