@@ -13,6 +13,8 @@ This is the starter template for ElizaOS projects.
 
 ## Getting Started
 
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/deploy/vfc8cZ?referralCode=DbBhWB)
 ```bash
 # Create a new project
 elizaos create -t project my-project
